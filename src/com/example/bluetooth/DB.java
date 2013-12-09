@@ -19,6 +19,7 @@ public class DB {
 
 	public DB(Context context) {
 		my_helper = new DatabaseHelper(context);
+		
 
 	}
 
@@ -35,7 +36,9 @@ public class DB {
 	public long save(List<Float> features, String activity) {
 		ContentValues values = new ContentValues();
 		// ORDER MATTERS: mean, variance, correlation (x,y,z)
-
+		if(activity == null){
+			return -1;
+		}
 		String[] columns = { DatabaseHelper.KEY_COL_MEANX,
 				DatabaseHelper.KEY_COL_MEANY, DatabaseHelper.KEY_COL_MEANZ,
 				DatabaseHelper.KEY_COL_VARIANCEX,

@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.List;
 
 import android.content.Context;
+import android.util.Log;
 
 
 public class Example implements Runnable {
@@ -24,7 +25,7 @@ public class Example implements Runnable {
 
 	Example(Context context, int windowsize, String Activity, String table) {
 		database = new DB(context);
-		max = windowsize;
+		this.max = windowsize;
 		data = new float[windowsize * 3];
 		x = new ArrayList<Float>();
 		y = new ArrayList<Float>();
@@ -59,10 +60,11 @@ public class Example implements Runnable {
 	public boolean reachedLimit() {
 		//return true if we have reached limit
 		//else false
+		//Log.d("max =", " "+ this.max);
 		return this.max <= x.size();
 	}
 
-	public ArrayList<Float> calcFeatures() {
+	public List<Float> calcFeatures() {
 		// call only when you have reached limit
 		if(x.size() == 0) return null;
 		calcFeatures = new CalcFeatures(x,y,z);

@@ -45,7 +45,7 @@ public class MClassifer {
 		// numAttributes = attributes.size() + 1;
 		List<String> classValues = new Vector<String>();
 		classValues.add("Walking");
-		classValues.add("Sitting");
+		classValues.add("Sit");
 		classValues.add("Running");
 		classValues.add("Kicking");
 		Attribute classAttributes = new Attribute("Class Value", classValues);
@@ -67,10 +67,12 @@ public class MClassifer {
 		m_test_instances = new Instances(nameOfTestDataset,
 				(ArrayList<Attribute>) attributes, 50);
 		m_test_instances.setClass(classAttributes);
+		lastRow = 0;
 	}
 
 	public void readDataFromLine(int skipNRows, int line) {
 		database.open();
+		// cursor for all the data
 		cursor = database.getCursor();
 		if (cursor == null) {
 			Log.e("cursor error", "cursor is null");
@@ -81,6 +83,7 @@ public class MClassifer {
 		database.close();
 	}
 
+	// read all the data from database
 	public void readData(int skipNRows, String table, boolean train) {
 		database.open();
 		if (train) {
@@ -117,9 +120,10 @@ public class MClassifer {
 
 	}
 
+	// loop from startIndex using cursor
 	private void loop(int startIndex, Instances dataset, Cursor cursor) {
 		// TODO Auto-generated method stub
-
+		
 		NumberFormat formatter = NumberFormat.getInstance();
 		formatter.setGroupingUsed(false);
 		formatter.setMinimumFractionDigits(7);
@@ -137,18 +141,24 @@ public class MClassifer {
 
 				makeInstance(buffer, dataset);
 				cursor.moveToNext();
+				Log.e("size of dataset is ", dataset.size() + "");
 				lastRow++;
 			}
 		}
 
 	}
 
-	public void train(boolean start) throws Exception {
-		if (start) {
+	public void train(boolean train) {
+		if (train) {
 			readData(5, DatabaseHelper.DATABASE_TABLE_USERS, true);
-			classifier.buildClassifier(m_train_instances);
-		}else{
-			readData(lastRow, DatabaseHelper.DATABASE_TEST_FEATURES, true);
+			try {
+				classifier.buildClassifier(m_train_instances);
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		} else {
+			readTestData();
 		}
 	}
 
@@ -157,17 +167,28 @@ public class MClassifer {
 
 	}
 
-	public String evaluate() {
-
-		try {
-			Evaluation eval = new Evaluation(m_train_instances);
-			eval.evaluateModel(classifier, m_test_instances);
-			return eval.toMatrixString();
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		return null;
+	public String evaluate()  {
+		String s = "Nothing";
+		
+			Evaluation eval;
+			try {
+				eval = new Evaluation(m_train_instances);
+				eval.evaluateModel(classifier, m_test_instances);
+				s = eval.toMatrixString();
+				Log.e("eval = ", "" + eval);
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+				Log.e("training instances = ", " " + m_train_instances);
+			}
+			
+			
+			Log.e("eval: size of training instances is ", " "+ m_train_instances.size());
+			Log.e("eval: size of testing instances is ", " "+ m_test_instances.size());
+			Log.e("I confusin matrix is ", s);
+		
+		Log.e("II confusin matrix is ", s);
+		return s;
 
 	}
 

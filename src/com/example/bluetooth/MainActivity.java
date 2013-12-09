@@ -14,8 +14,11 @@ import java.io.OutputStreamWriter;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+
+import weka.classifiers.trees.J48;
 
 import android.os.Build;
 import android.os.Bundle;
@@ -54,6 +57,7 @@ public class MainActivity extends Activity {
 	private SensorManager sensorManager;
 	ArrayAdapter<String> listadaptor;
 	ArrayList<String> pairedDevices;
+	private DB db;
 	Button connect;
 	ListView listview;
 	BluetoothAdapter b_adapter;
@@ -68,12 +72,17 @@ public class MainActivity extends Activity {
 	private String name;
 	private int whichAccel; // 0 = phone, 1 = both, 2 = accelerometer
 	private String Activity;
-	private boolean record = true;
+	private Example example;
+	private boolean record = false;
 	public static final int SUCCESS_CONNECT = 0;
 	public static final UUID MY_UUID = UUID
 			.fromString("00001101-0000-1000-8000-00805f9b34fb");
 	public static final int MESSAGE_READ = 1;
 	private float[] acceleration;
+	private MClassifer classifier;
+	private boolean start = true;
+	private boolean train = true;
+	private Example testEx;
 	private final Handler mHandler = new Handler() {
 		@Override
 		public void handleMessage(Message msg) {
@@ -116,6 +125,9 @@ public class MainActivity extends Activity {
 
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+
+		Intent intent = getIntent();
+		Activity = intent.getStringExtra("Activity");
 		setContentView(R.layout.activity_main);
 		sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
 		init();
@@ -124,6 +136,7 @@ public class MainActivity extends Activity {
 		File phoneFile = new File(dir, "dataphone.txt");
 		boolean deleted = file.delete();
 		phoneFile.delete();
+
 		if (b_adapter == null) {
 			Toast.makeText(this, "Bluetooth not supported", Toast.LENGTH_LONG)
 					.show();
@@ -147,10 +160,24 @@ public class MainActivity extends Activity {
 		b_adapter.startDiscovery();
 	}
 
+	public void Train(View v) {
+		if (train) {
+			((Button) findViewById(R.id.train)).setText("Test");
+		} else {
+			((Button) findViewById(R.id.train)).setText("Train");
+		}
+		train ^= true;
+	}
+
 	private void init() {
 		// TODO Auto-generated method stub
+		example = new Example(getApplicationContext(), 10, Activity,
+				DatabaseHelper.DATABASE_TABLE_USERS);
+		testEx = new Example(getApplicationContext(), 10, Activity,
+				DatabaseHelper.DATABASE_TEST_FEATURES);
 		Bundle bundle = getIntent().getExtras();
-		
+		db = new DB(getApplicationContext());
+		classifier = new MClassifer(db, new J48());
 		name = bundle.getString("Name");
 		email = bundle.getString("Email");
 		sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
@@ -194,6 +221,7 @@ public class MainActivity extends Activity {
 			}
 
 		};
+
 		acceleration = new float[3];
 		registerReceiver(receiver, filter);
 		// Register the BroadcastReceiver
@@ -203,7 +231,8 @@ public class MainActivity extends Activity {
 			@Override
 			public void onItemClick(AdapterView<?> arg0, View arg1, int arg2,
 					long arg3) {
-				if(whichAccel == phoneAccel) return;
+				if (whichAccel == phoneAccel)
+					return;
 				record = true;
 				if (b_adapter.isDiscovering()) {
 					b_adapter.cancelDiscovery();
@@ -240,48 +269,48 @@ public class MainActivity extends Activity {
 
 	private void setupListener() {
 		// TODO Auto-generated method stub
-		
+
 		acc_listener = new SensorEventListener() {
 
 			@Override
 			public void onSensorChanged(SensorEvent event) {
-				double timestamp = System.currentTimeMillis();
-				double timestampPrev = 0;
-				if (timestamp - timestampPrev < 20) {
-					timestampPrev = timestamp;
+				List<Float> list;
+				if (Activity == null) {
 					return;
 				}
-				acceleration[0] = event.values[0];
-				acceleration[1] = event.values[1];
-				acceleration[2] = event.values[2];
-				String acc = new String(event.values[0] + "," + event.values[1]
-						+ "," + event.values[2]);
-				// accel.setText(acc);
-				StringBuilder sb = new StringBuilder();
-				sb.append(acc +"\n");
-				FileOutputStream fOut = null;
-				try {
-					fOut = openFileOutput("dataphone.txt",
-							MODE_APPEND);
-				} catch (FileNotFoundException e1) {
-					// TODO Auto-generated catch block
-					e1.printStackTrace();
+				if (record && train) {
+					if (example.reachedLimit()) {
+						list = example.calcFeatures();
+						db.open();
+						db.save(list, Activity,
+								DatabaseHelper.DATABASE_TABLE_USERS);
+						db.close();
+						example = new Example(getApplicationContext(), 10,
+								Activity, DatabaseHelper.DATABASE_TABLE_USERS);
+					} else {
+						acceleration[0] = event.values[0];
+						acceleration[1] = event.values[1];
+						acceleration[2] = event.values[2];
+						example.setData(acceleration);
+					}
+				} else if (record && !train) {
+
+					if (testEx.reachedLimit()) {
+						list = testEx.calcFeatures();
+						db.open();
+						db.save(list, Activity,
+								DatabaseHelper.DATABASE_TEST_FEATURES);
+						db.close();
+						testEx = new Example(getApplicationContext(), 10,
+								Activity, DatabaseHelper.DATABASE_TEST_FEATURES);
+					} else {
+						acceleration[0] = event.values[0];
+						acceleration[1] = event.values[1];
+						acceleration[2] = event.values[2];
+						testEx.setData(acceleration);
+					}
+
 				}
-				OutputStreamWriter osw = new OutputStreamWriter(fOut);
-				try {
-					osw.write(sb.toString());
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-				try {
-					osw.close();
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-				Log.d("event values[0]", "" + event.values[0]);
-				Log.d("acceleration", acc);
 			}
 
 			@Override
@@ -411,8 +440,8 @@ public class MainActivity extends Activity {
 	}
 
 	@SuppressWarnings("resource")
-	public void SendEmail(View v) throws UnsupportedEncodingException,
-			IOException {
+	public void SendEmail(View v)
+			throws UnsupportedEncodingException, IOException {
 		// first save settings. No error checking
 		Pause(v);
 		// Toast.makeText(getApplicationContext(), "email?",
@@ -423,7 +452,8 @@ public class MainActivity extends Activity {
 		FileInputStream fis2;
 		int ch;
 		StringBuilder sb = new StringBuilder();
-		if(whichAccel != phoneAccel){
+		classifier = new MClassifer(db, new J48());
+		if (whichAccel != phoneAccel) {
 			fis = openFileInput(FILENAME);
 			Log.i("entering read function loop", "fis.read");
 			while ((ch = fis.read()) != -1) {
@@ -431,17 +461,13 @@ public class MainActivity extends Activity {
 				Log.i("char", " " + ch);
 			}
 			sb.append(Activity);
-		}else if(whichAccel != externalAccel){
-			fis2 = openFileInput(FILENAME2);
-			sb.append(Activity + "\n");
-			sb.append("From Phone\n");
-		while ((ch = fis2.read()) != -1) {
-			sb.append((char) ch);
-			Log.i("char", " " + ch);
-			}
+		} else if (whichAccel != externalAccel) {
+			classifier.train(true);
 		}
+		classifier.train(false);
 		
-		
+		String str = classifier.evaluate();
+
 		Intent i = new Intent(Intent.ACTION_SEND);
 		i.setType("message/rfc822");
 		// i.setType("UTF-8");
@@ -449,7 +475,10 @@ public class MainActivity extends Activity {
 				new String[] { "jonathan.suit@gmail.com" });
 		i.putExtra(Intent.EXTRA_SUBJECT, "subject of email");
 
-		i.putExtra(Intent.EXTRA_TEXT, sb.toString());
+		i.putExtra(Intent.EXTRA_TEXT, str);
+		if (str == null) {
+			finish();
+		}
 		try {
 			startActivity(Intent.createChooser(i, "Send mail..."));
 		} catch (android.content.ActivityNotFoundException ex) {
@@ -461,7 +490,13 @@ public class MainActivity extends Activity {
 	}
 
 	public void Pause(View v) {
-		record = false;
+		if (!record) {
+			((Button) findViewById(R.id.pause)).setText("Pause");
+			record ^= true;
+		} else {
+			((Button) findViewById(R.id.pause)).setText("Start");
+			record ^= true;
+		}
 	}
 
 	private class ConnectedThread extends Thread {
