@@ -56,6 +56,17 @@ public class Example implements Runnable {
 
 		
 	}
+	
+	public void setData(Float[] data){
+		for (int i = 0; i < data.length; i++) {
+			if (i % 3 == 0)
+				x.add(data[i]);
+			else if (i % 3 == 1)
+				y.add(data[i]);
+			else
+				z.add(data[i]);
+		}
+	}
 
 	public boolean reachedLimit() {
 		//return true if we have reached limit
@@ -85,7 +96,7 @@ public class Example implements Runnable {
 	}
 
 	@Override
-	public void run() {
+	public synchronized void run() {
 		// TODO Auto-generated method stub
 		
 			this.features = calcFeatures();	

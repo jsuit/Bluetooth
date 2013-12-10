@@ -14,9 +14,11 @@ import java.io.OutputStreamWriter;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.locks.Lock;
 
 import weka.classifiers.trees.J48;
 
@@ -73,6 +75,7 @@ public class MainActivity extends Activity {
 	private int whichAccel; // 0 = phone, 1 = both, 2 = accelerometer
 	private String Activity;
 	private Example example;
+	private Example example2;
 	private boolean record = false;
 	public static final int SUCCESS_CONNECT = 0;
 	public static final UUID MY_UUID = UUID
@@ -83,6 +86,8 @@ public class MainActivity extends Activity {
 	private boolean start = true;
 	private boolean train = true;
 	private Example testEx;
+
+	public static Object o = new Object();
 	private final Handler mHandler = new Handler() {
 		@Override
 		public void handleMessage(Message msg) {
@@ -95,28 +100,7 @@ public class MainActivity extends Activity {
 						Toast.LENGTH_SHORT).show();
 				break;
 			case MESSAGE_READ:
-				if (record) {
-					byte[] bytes = (byte[]) msg.obj;
-					String string = null;
-					try {
-						string = new String(bytes, "ASCII");
-						Log.i("writing string", string);
-					} catch (UnsupportedEncodingException e1) {
-						// TODO Auto-generated catch block
-						e1.printStackTrace();
-					}
 
-					String FILENAME = "data.txt";
-					try {
-						FileOutputStream fOut = openFileOutput(FILENAME,
-								MODE_APPEND);
-						OutputStreamWriter osw = new OutputStreamWriter(fOut);
-						osw.write(string);
-						osw.close();
-					} catch (Exception e) {
-						e.printStackTrace();
-					}
-				}
 				// Toast.makeText(getApplicationContext(), string,
 				// Toast.LENGTH_LONG).show();
 			}
@@ -136,6 +120,7 @@ public class MainActivity extends Activity {
 		File phoneFile = new File(dir, "dataphone.txt");
 		boolean deleted = file.delete();
 		phoneFile.delete();
+		file.delete();
 
 		if (b_adapter == null) {
 			Toast.makeText(this, "Bluetooth not supported", Toast.LENGTH_LONG)
@@ -171,6 +156,8 @@ public class MainActivity extends Activity {
 
 	private void init() {
 		// TODO Auto-generated method stub
+		example2 = new Example(getApplicationContext(), 10, Activity,
+				DatabaseHelper.DATABASE_TABLE_USERS);
 		example = new Example(getApplicationContext(), 10, Activity,
 				DatabaseHelper.DATABASE_TABLE_USERS);
 		testEx = new Example(getApplicationContext(), 10, Activity,
@@ -233,7 +220,6 @@ public class MainActivity extends Activity {
 					long arg3) {
 				if (whichAccel == phoneAccel)
 					return;
-				record = true;
 				if (b_adapter.isDiscovering()) {
 					b_adapter.cancelDiscovery();
 				}
@@ -246,6 +232,7 @@ public class MainActivity extends Activity {
 						ConnectThread connect = new ConnectThread(
 								selectedDevice);
 						connect.start();
+
 					}
 
 					Log.d("finished start1", "connect.start");
@@ -321,8 +308,10 @@ public class MainActivity extends Activity {
 
 		};
 		if (acc_listener != null) {
-			sensorManager.registerListener(acc_listener, a,
-					SensorManager.SENSOR_DELAY_UI);
+			if (whichAccel == bothAccel || whichAccel == phoneAccel) {
+				sensorManager.registerListener(acc_listener, a,
+						SensorManager.SENSOR_DELAY_UI);
+			}
 		}
 	}
 
@@ -440,32 +429,21 @@ public class MainActivity extends Activity {
 	}
 
 	@SuppressWarnings("resource")
-	public void SendEmail(View v)
-			throws UnsupportedEncodingException, IOException {
+	public void SendEmail(View v) throws UnsupportedEncodingException,
+			IOException {
 		// first save settings. No error checking
 		Pause(v);
 		// Toast.makeText(getApplicationContext(), "email?",
 		// Toast.LENGTH_SHORT).show();
-		String FILENAME = "data.txt";
-		String FILENAME2 = "dataphone.txt";
-		FileInputStream fis;
-		FileInputStream fis2;
-		int ch;
-		StringBuilder sb = new StringBuilder();
+
 		classifier = new MClassifer(db, new J48());
 		if (whichAccel != phoneAccel) {
-			fis = openFileInput(FILENAME);
-			Log.i("entering read function loop", "fis.read");
-			while ((ch = fis.read()) != -1) {
-				sb.append((char) ch);
-				Log.i("char", " " + ch);
-			}
-			sb.append(Activity);
+			classifier.train(true);
 		} else if (whichAccel != externalAccel) {
 			classifier.train(true);
 		}
 		classifier.train(false);
-		
+
 		String str = classifier.evaluate();
 
 		Intent i = new Intent(Intent.ACTION_SEND);
@@ -491,12 +469,14 @@ public class MainActivity extends Activity {
 
 	public void Pause(View v) {
 		if (!record) {
+
 			((Button) findViewById(R.id.pause)).setText("Pause");
-			record ^= true;
+
 		} else {
 			((Button) findViewById(R.id.pause)).setText("Start");
-			record ^= true;
+
 		}
+		record ^= true;
 	}
 
 	private class ConnectedThread extends Thread {
@@ -505,6 +485,7 @@ public class MainActivity extends Activity {
 		private final OutputStream mmOutStream;
 
 		public ConnectedThread(BluetoothSocket socket) {
+			super("ConnectedThread");
 			mmSocket = socket;
 			InputStream tmpIn = null;
 			OutputStream tmpOut = null;
@@ -524,20 +505,81 @@ public class MainActivity extends Activity {
 		public void run() {
 			// buffer store for the stream
 			int bytes; // bytes returned from read()
-
+			List<Byte> buffer3 = new ArrayList<Byte>();
+			List<Byte> byteBuffer = new ArrayList<Byte>();
 			// Keep listening to the InputStream until an exception occurs
 			while (true) {
 				try {
-					byte[] buffer = new byte[1];
-					// Read from the InputStream
-					bytes = mmInStream.read(buffer);
+					if (record) {
+						Log.d("INSIDE RUN", "INSIDE RUN");
+						byte[] buffer = new byte[1];
+						// Read from the InputStream
+						bytes = mmInStream.read(buffer);
+						if (byteBuffer.size() == 29) {
+							synchronized (o) {
+								byteBuffer.add(buffer[0]);
+								if (record && train) {
+									Log.d("record= and train =", "" + record
+											+ " " + train);
+									example2 = new Example(
+											getApplicationContext(), 10,
+											Activity,
+											DatabaseHelper.DATABASE_TABLE_USERS);
+									float[] floatArray = new float[30];
+									int i = 0;
+									for (byte b : byteBuffer) {
+										floatArray[i++] = (float) b;
+									}
+									i = 0;
 
-					String string = new String(buffer);
-					Log.d("STRING IS", " " + string);
+									example2.setData(floatArray);
+									byteBuffer.clear();
+									List<Float> features = example2
+											.calcFeatures();
+									db.open();
+									db.save(features, Activity);
+									db.close();
+									buffer3.clear();
+								} else if (record && !train) {
+									// Log.e("TRAIN = ", "false");
+									Log.d("record= and train =", "" + record
+											+ " " + train);
+									example2 = new Example(
+											getApplicationContext(),
+											10,
+											Activity,
+											DatabaseHelper.DATABASE_TEST_FEATURES);
+									float[] floatArray = new float[30];
+									int i = 0;
+									for (byte b : byteBuffer) {
+										floatArray[i++] = (float) b;
+									}
+									i = 0;
+									example2.setData(floatArray);
+									List<Float> features = example2
+											.calcFeatures();
+									byteBuffer.clear();
+									db.open();
+									long returncode = db
+											.save(features,
+													Activity,
+													DatabaseHelper.DATABASE_TEST_FEATURES);
+									Log.d("Activity = ", Activity);
+									db.close();
+									buffer3.clear();
+								}
+								// mHandler.obtainMessage(MESSAGE_READ, bytes,
+								// -1,
+								// buffer).sendToTarget();
+							}
+						} else {
+							byteBuffer.add(buffer[0]);
+						}
+					}
+
+					// String string = new String(buffer);
+					// Log.d("STRING IS", " " + string);
 					// Send the obtained bytes to the UI activity
-
-					mHandler.obtainMessage(MESSAGE_READ, bytes, -1, buffer)
-							.sendToTarget();
 
 				} catch (IOException e) {
 					break;
@@ -561,6 +603,12 @@ public class MainActivity extends Activity {
 			}
 
 		}
+	}
+
+	@Override
+	public void onBackPressed() {
+		super.onBackPressed();
+
 	}
 
 }
