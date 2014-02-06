@@ -13,7 +13,6 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
-
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -21,7 +20,6 @@ import java.util.UUID;
 import java.util.concurrent.locks.Lock;
 
 import weka.classifiers.trees.J48;
-
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -31,12 +29,13 @@ import android.annotation.TargetApi;
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
-
 import android.bluetooth.BluetoothSocket;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteOpenHelper;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -109,18 +108,13 @@ public class MainActivity extends Activity {
 
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
-
+		getApplicationContext().deleteDatabase(DatabaseHelper.DATABASE_NAME);
 		Intent intent = getIntent();
 		Activity = intent.getStringExtra("Activity");
 		setContentView(R.layout.activity_main);
 		sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
 		init();
 		File dir = getFilesDir();
-		File file = new File(dir, "data.txt");
-		File phoneFile = new File(dir, "dataphone.txt");
-		boolean deleted = file.delete();
-		phoneFile.delete();
-		file.delete();
 
 		if (b_adapter == null) {
 			Toast.makeText(this, "Bluetooth not supported", Toast.LENGTH_LONG)
@@ -231,6 +225,7 @@ public class MainActivity extends Activity {
 					if (phoneAccel != whichAccel) {
 						ConnectThread connect = new ConnectThread(
 								selectedDevice);
+						
 						connect.start();
 
 					}
@@ -435,7 +430,7 @@ public class MainActivity extends Activity {
 		Pause(v);
 		// Toast.makeText(getApplicationContext(), "email?",
 		// Toast.LENGTH_SHORT).show();
-
+		/*
 		classifier = new MClassifer(db, new J48());
 		if (whichAccel != phoneAccel) {
 			classifier.train(true);
@@ -443,8 +438,13 @@ public class MainActivity extends Activity {
 			classifier.train(true);
 		}
 		classifier.train(false);
-
-		String str = classifier.evaluate();
+		 */
+		db.open();
+		StringBuilder strB = new StringBuilder();
+		String str = db.getData(DatabaseHelper.DATABASE_TABLE_USERS);
+		
+		
+		//String str = classifier.evaluate();
 
 		Intent i = new Intent(Intent.ACTION_SEND);
 		i.setType("message/rfc822");
@@ -456,6 +456,8 @@ public class MainActivity extends Activity {
 		i.putExtra(Intent.EXTRA_TEXT, str);
 		if (str == null) {
 			finish();
+		}else{
+			i.putExtra(Intent.EXTRA_TEXT, str);
 		}
 		try {
 			startActivity(Intent.createChooser(i, "Send mail..."));
@@ -595,6 +597,9 @@ public class MainActivity extends Activity {
 			}
 		}
 
+		public void open(){
+
+		}
 		/* Call this from the main activity to shutdown the connection */
 		public void cancel() {
 			try {

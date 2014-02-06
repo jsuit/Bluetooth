@@ -40,9 +40,6 @@ public class DataSettings extends Activity {
 	ArrayAdapter<CharSequence> spinner_adapter;
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
-		 DatabaseHelper h = new DatabaseHelper(getApplicationContext());
-		 h.getWritableDatabase().delete(DatabaseHelper.DATABASE_TABLE_USERS, null, null);
-		 h.getWritableDatabase().delete(DatabaseHelper.DATABASE_TEST_FEATURES, null, null);
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_data_settings);
 		name = (EditText) findViewById(R.id.name);

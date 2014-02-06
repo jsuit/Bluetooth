@@ -19,7 +19,6 @@ public class DB {
 
 	public DB(Context context) {
 		my_helper = new DatabaseHelper(context);
-		
 
 	}
 
@@ -36,7 +35,7 @@ public class DB {
 	public long save(List<Float> features, String activity) {
 		ContentValues values = new ContentValues();
 		// ORDER MATTERS: mean, variance, correlation (x,y,z)
-		if(activity == null){
+		if (activity == null) {
 			return -1;
 		}
 		String[] columns = { DatabaseHelper.KEY_COL_MEANX,
@@ -59,26 +58,55 @@ public class DB {
 
 	public Cursor retrieveRows(String table) {
 
-		cursor = database.rawQuery("select * from "
-				+ table, null);
+		cursor = database.rawQuery("select * from " + table, null);
 		if (cursor == null)
 			return null;
 		StringBuffer buffer = new StringBuffer();
 		NumberFormat formatter = NumberFormat.getInstance();
 		formatter.setGroupingUsed(false);
 		formatter.setMinimumFractionDigits(7);
-		/*
-		 * if (cursor.moveToFirst()) { int i = cursor.getColumnCount(); while
-		 * (cursor.isAfterLast() == false) { // start at 1 because the very
-		 * first element is actually the row // number for (int j = 1; j < i -
-		 * 1; j++) { buffer.append(formatter.format(cursor.getFloat(j)));
-		 * buffer.append(","); } // this appends the classification
-		 * buffer.append(cursor.getString(i - 1)); buffer.append("\n");
-		 * cursor.moveToNext(); index++; } }
-		 */cursor.moveToFirst();
+
+		if (cursor.moveToFirst()) {
+			int i = cursor.getColumnCount();
+			while (!cursor.isAfterLast()) {
+				for (int j = 1; j < i - 1; j++) {
+					buffer.append(formatter.format(cursor.getFloat(j)));
+					buffer.append(",");
+				} // this appends the classification
+				buffer.append(cursor.getString(i - 1));
+				buffer.append("\n");
+				cursor.moveToNext();
+			}
+		}
+		cursor.moveToFirst();
 		return cursor;
 	}
 
+	public String getData(String table){
+		
+		cursor = database.rawQuery("select * from " + table, null);
+		if (cursor == null)
+			return null;
+		StringBuffer buffer = new StringBuffer();
+		NumberFormat formatter = NumberFormat.getInstance();
+		formatter.setGroupingUsed(false);
+		formatter.setMinimumFractionDigits(7);
+
+		if (cursor.moveToFirst()) {
+			int i = cursor.getColumnCount();
+			while (!cursor.isAfterLast()) {
+				for (int j = 1; j < i - 1; j++) {
+					buffer.append(formatter.format(cursor.getFloat(j)));
+					buffer.append(",");
+				} // this appends the classification
+				buffer.append(cursor.getString(i - 1));
+				buffer.append("\n");
+				cursor.moveToNext();
+			}
+		}
+		
+		return buffer.toString();
+	}
 	public Cursor getCursor() {
 		// TODO Auto-generated method stub
 		cursor = database.rawQuery("select * from "
