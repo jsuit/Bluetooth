@@ -56,14 +56,14 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 		// TODO Auto-generated method stub
 		//db.execSQL(DATABASE_CREATE);
     	//db.execSQL(CREATE_TEST_DATABASE);
-		//db.execSQL(DATABASE_CREATE);
+		db.execSQL(DATABASE_CREATE);
 		Log.i("Oncreate for datatabse helper called", "oncreate");
 	}
 
 	@Override
 	public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
 		// TODO Auto-generated method stub
-		//db.execSQL(DATABASE_CREATE);
+		db.execSQL(DATABASE_CREATE);
 		//db.execSQL(CREATE_TEST_DATABASE);
 	}
 
