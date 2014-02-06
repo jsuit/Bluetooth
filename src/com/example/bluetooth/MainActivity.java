@@ -108,7 +108,6 @@ public class MainActivity extends Activity {
 
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
-		getApplicationContext().deleteDatabase(DatabaseHelper.DATABASE_NAME);
 		Intent intent = getIntent();
 		Activity = intent.getStringExtra("Activity");
 		setContentView(R.layout.activity_main);
